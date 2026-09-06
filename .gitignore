@@ -23,7 +23,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.vercel
 .env*
 
 # Claude Code local settings (machine-specific, never shared)

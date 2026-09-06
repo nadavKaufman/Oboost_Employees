@@ -100,9 +100,8 @@ Raw Supabase/Postgres error messages are never shown to users. Every data-access
 
 ## 10. Deployment status
 
-- **Primary target: Netlify**, under the project owner's own account. Build command `npm run build`, publish directory `dist`, SPA routing via `public/_redirects`.
-- A generic `vercel.json` remains in the repo as an alternative path but is not the documented primary deployment.
-- No production URL is live yet as of this writing.
+- **Netlify is the only deployment target**, under the project owner's own account. Build command `npm run build`, publish directory `dist`, SPA routing via `public/_redirects`.
+- The production site is live at https://oboost-manager.netlify.app/.
 
 ## 11. Manual Supabase setup (for a fresh project)
 
