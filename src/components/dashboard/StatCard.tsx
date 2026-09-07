@@ -18,23 +18,51 @@ interface Props {
    *  exactly as it always has. */
   iconSrc?: string;
   iconAlt?: string;
+  /** Renders the card as a real <button> instead of a plain <div>, for the
+   *  3 clickable cleaning-status cards that open/switch an accordion
+   *  below them. Omitted (default) everywhere else, so every other
+   *  StatCard usage renders exactly as it always has. */
+  onClick?: () => void;
+  /** Only meaningful together with onClick — reflects aria-expanded on the
+   *  button for the accordion section it controls. */
+  expanded?: boolean;
+  /** Assigns this card to a named CSS Grid area — used when the parent
+   *  grid places cards via `grid-template-areas` at different positions
+   *  per breakpoint (the dashboard's 3 clickable status cards), instead
+   *  of relying on plain DOM order. Omitted everywhere else. */
+  gridArea?: string;
 }
 
-export default function StatCard({ label, value, subtext, accent = 'default', size = 'md', className, iconSrc, iconAlt }: Props) {
+export default function StatCard({
+  label,
+  value,
+  subtext,
+  accent = 'default',
+  size = 'md',
+  className,
+  iconSrc,
+  iconAlt,
+  onClick,
+  expanded,
+  gridArea,
+}: Props) {
+  const showAccent = !iconSrc && accent !== 'default';
   const cardClass = [
     size === 'lg' ? 'stat-card stat-card--lg' : 'stat-card',
-    !iconSrc && accent !== 'default' && `stat-card--${accent}`,
+    showAccent && `stat-card--${accent}`,
     iconSrc && 'stat-card--tinted',
+    onClick && 'stat-card--clickable',
     className,
   ]
     .filter(Boolean)
     .join(' ');
+  const rootStyle = gridArea ? { gridArea } : undefined;
 
-  return (
-    <div className={cardClass}>
+  const content = (
+    <>
       <div className="stat-card__content">
         <div className="stat-card__label-row">
-          {!iconSrc && accent !== 'default' && <span className={`stat-card__dot stat-card__dot--${accent}`} />}
+          {showAccent && <span className={`stat-card__dot stat-card__dot--${accent}`} />}
           <span className="stat-card__label">{label}</span>
         </div>
         <div className="stat-card__value">{value}</div>
@@ -45,6 +73,20 @@ export default function StatCard({ label, value, subtext, accent = 'default', si
           <img src={iconSrc} alt={iconAlt ?? ''} className="stat-card__icon-img" />
         </span>
       )}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" className={cardClass} style={rootStyle} onClick={onClick} aria-expanded={expanded}>
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={cardClass} style={rootStyle}>
+      {content}
     </div>
   );
 }

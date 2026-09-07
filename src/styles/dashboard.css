@@ -96,44 +96,83 @@
   }
 }
 
-/* Desktop only: all three Overview KPI cards (the only multi-card,
-   non-`--single` .stat-cards grid in the app) sit together on one row —
-   a horizontal KPI row that fills most of the available width, not three
-   near-square boxes with a fixed small width, and not the original `1fr`
-   full-bleed stretch either. `minmax(220px, 320px)` (not `1fr`, and not a
-   fixed px) lets all three cards grow together to use most of the row
-   while staying clearly wider than tall, capped so they don't stretch
-   into long shallow rectangles again; `justify-content: center` centers
-   the row as a group in whatever modest space is left over once they hit
-   that cap, rather than leaving one large empty gap on one side. A fixed
-   column count (not auto-fit) means there's no risk of wrapping to a
-   second row at any desktop width — three tracks always fit even at
-   their 220px minimum. Grid's default align-items: stretch (unchanged)
-   still keeps all three equal height, and identical track constraints
-   keep all three exactly the same width. `:not(.stat-cards--single)`
-   keeps this from ever touching Inventory's single-card grid, which
-   already has its own width cap. Mobile (below 768px) keeps the existing
-   full-width 2-column layout untouched. Card design itself (padding,
-   type, icon, gradient) is untouched here — this is layout/positioning
-   only. */
+/* ─── Manager dashboard: 3 clickable cleaning-status cards + their shared
+   accordion ─── A dedicated grid (not the generic .stat-cards used
+   elsewhere, e.g. Inventory) since it also has to host the accordion as a
+   4th item, positioned via grid-template-areas onto the exact column of
+   whichever card is active — never a full-width row. Card design itself
+   (padding, type, icon, gradient) is completely untouched; this is layout/
+   positioning only.
+   Mobile (default): 4 equal columns — "מכונות שדורשות ניקוי"/"מכונות לנקות
+   דחוף" each span 2 of the 4 on top, "מכונות נקיות" also spans exactly 2 of
+   the 4 (the middle two) below — same width as its siblings by construction,
+   not an approximated max-width, and centered purely because the two empty
+   outer cells are equal. Each accordion row mirrors its card row exactly. */
+.status-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-areas:
+    'due_soon due_soon overdue overdue'
+    'acc-due_soon acc-due_soon acc-overdue acc-overdue'
+    '. clean clean .'
+    '. acc-clean acc-clean .';
+  gap: 14px;
+}
+
+/* Desktop: one row, all 3 in their original order, same sizing the old
+   3-KPI-card row used (minmax(220px,320px) capped columns, centered as a
+   group) — the accordion row mirrors it 1-for-1 so each accordion always
+   renders exactly as wide as the card above it. */
 @media (min-width: 768px) {
-  .stat-cards:not(.stat-cards--single) {
+  .status-cards-grid {
     grid-template-columns: repeat(3, minmax(220px, 320px));
+    grid-template-areas:
+      'clean due_soon overdue'
+      'acc-clean acc-due_soon acc-overdue';
     gap: 20px;
     justify-content: center;
   }
 }
 
-/* "מלאי תפוזים" — the third Overview KPI card — is desktop-only. Mobile
-   keeps exactly the two cleaning cards it always has, unchanged.
-   `.stat-cards .stat-card--desktop-only` (two classes) rather than just
-   `.stat-card--desktop-only` — needs to outrank the base `.stat-card`
-   `display: flex` rule below on specificity, not source order, since both
-   apply at this width and equal-specificity rules are decided by whichever
-   is declared later in the file (which was, wrongly, the base rule). */
+/* .machine-section.status-accordion (two classes, to outrank the plain
+   .machine-section rule below on specificity rather than source order —
+   .machine-section is declared later in this file) overrides its always-on
+   border/background/shadow: with those left on, a closed accordion's
+   height collapses to 0 (via .collapsible__body below) but its own 1px
+   top+bottom border still renders, coinciding into a visible thin line
+   left behind under the card until another card is clicked. Stripping
+   this chrome by default and only restoring it once actually open
+   (--open) removes the line's actual cause instead of just hiding it. */
+.machine-section.status-accordion {
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+.machine-section.status-accordion.status-accordion--open {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Accordion header: shorter text than every other .machine-section__header
+   in the app (just "נקיות" + "2", no "מכונות" anywhere — see Dashboard.tsx)
+   still needs guaranteed breathing room between title and count on a
+   narrow mobile card, where the two would otherwise sit close enough to
+   feel like they collide. `gap` enforces a minimum even though
+   justify-content: space-between already pushes them apart. */
 @media (max-width: 767px) {
-  .stat-cards .stat-card--desktop-only {
-    display: none;
+  .status-accordion .machine-section__header {
+    gap: 16px;
+  }
+
+  .status-accordion .machine-section__title {
+    font-size: 13px;
+  }
+
+  .status-accordion .machine-section__count {
+    font-size: 12px;
+    white-space: nowrap;
   }
 }
 
@@ -247,6 +286,18 @@
   opacity: 0.85;
 }
 
+/* "מכונות לנקות דחוף"'s icon file is a JPG (opaque white square background,
+   no alpha) rather than a transparent PNG like the other two icons, so its
+   background would otherwise show as a visible white box. `multiply` blend
+   mode makes white pixels blend into whatever's behind them (the card's own
+   background) while keeping the black line-art fully opaque — same effect
+   as real transparency, without altering the source image itself. Scoped
+   to this exact file only; the other icons are already-transparent PNGs,
+   for which this blend mode is a visual no-op. */
+img[src='/icons/urgent-cleaning.jpg'].stat-card__icon-img {
+  mix-blend-mode: multiply;
+}
+
 .stat-card__value {
   font-size: 34px;
   font-weight: 800;
@@ -324,6 +375,34 @@
   }
 }
 
+/* The 3 clickable cleaning-status cards render as real <button> elements
+   (see StatCard's onClick) instead of the plain <div> every other stat
+   card uses. Resets default button chrome back to matching the existing
+   card exactly, then layers the "clickable" affordance on top via
+   filter/outline only — never box-shadow — so the accent's colored inset
+   stripe (green/amber/red, via showAccentWithIcon) is never overwritten. */
+button.stat-card {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  text-align: inherit;
+  width: 100%;
+}
+
+.stat-card--clickable {
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.stat-card--clickable:hover {
+  filter: brightness(0.97);
+}
+
+.stat-card--clickable:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
 /* ─── Machine section wrapper ─── */
 
 .machine-section {
@@ -395,6 +474,22 @@
   .collapsible-chevron {
     transition: none;
   }
+}
+
+/* Manager dashboard: the accordion opened by the 3 cleaning-status cards —
+   names only, per the requirement (no city/dates/badges/buttons). Reuses
+   .machine-name for identical name typography to everywhere else in the app. */
+.status-machine-list {
+  padding: 4px 24px 20px;
+}
+
+.status-machine-list__row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.status-machine-list__row:last-child {
+  border-bottom: none;
 }
 
 /* ─── Collapsible section: mobile-only disclosure ───
@@ -1619,10 +1714,9 @@
   }
 }
 
-/* Mirror of .stat-card--desktop-only (Overview's KPI card) — this one
-   hides the other direction. Two classes to outrank the base .stat-card
-   `display: flex` rule on specificity, matching that rule's own reasoning
-   (equal-specificity ties resolve by source order, not intent). */
+/* Inventory's stock card is mobile-only here. Two classes (`.stat-cards
+   .stat-card--mobile-only`) to outrank the base .stat-card `display: flex`
+   rule on specificity, not source order, since both apply at this width. */
 @media (min-width: 768px) {
   .stat-cards .stat-card--mobile-only {
     display: none;

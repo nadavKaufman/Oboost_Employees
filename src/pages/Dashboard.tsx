@@ -3,9 +3,9 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import StatCard from '../components/dashboard/StatCard';
 import CleaningTaskBadge from '../components/dashboard/CleaningTaskBadge';
 import MyTasksList from '../components/dashboard/MyTasksList';
-import { type Machine, getMachineStatus } from '../types/machine';
+import { type Machine, type CleaningStatus, getMachineStatus } from '../types/machine';
 import { useAuth } from '../context/AuthContext';
-import { getMachines, getTasks, getOrangeInventory, isTaskVisible, type TaskRecord } from '../lib/supabase';
+import { getMachines, getTasks, isTaskVisible, type TaskRecord } from '../lib/supabase';
 import '../styles/layout.css';
 import '../styles/dashboard.css';
 
@@ -16,25 +16,38 @@ const FALLBACK_USER = {
 
 type PageStatus = 'loading' | 'error' | 'ready';
 
+// Accordion header title only — deliberately without the word "מכונות"
+// (the count sits right next to it as a plain number), unlike the card
+// labels below which keep their full "מכונות ..." text.
+const STATUS_ACCORDION_TITLE: Record<CleaningStatus, string> = {
+  clean: 'נקיות',
+  due_soon: 'דורשות ניקוי',
+  overdue: 'לנקות דחוף',
+};
+
 export default function Dashboard() {
   const { session, profile, loading } = useAuth();
   const [status, setStatus] = useState<PageStatus>('loading');
   const [machines, setMachines] = useState<Machine[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
-  // Desktop-only "מלאי תפוזים" KPI card — same getOrangeInventory used by
-  // the Inventory page, just read here too for the extra card.
-  const [orangeStock, setOrangeStock] = useState(0);
+  // Which of the 3 cleaning-status cards' accordion is open, if any —
+  // clicking the already-active card closes it (see toggleStatusFilter).
+  const [activeStatus, setActiveStatus] = useState<CleaningStatus | null>(null);
+  // Which category the accordion is positioned under / showing content
+  // for. Kept separate from activeStatus (and never reset to null) so
+  // closing collapses it in place at the same grid column instead of
+  // jumping elsewhere first — see toggleStatusFilter.
+  const [displayedStatus, setDisplayedStatus] = useState<CleaningStatus | null>(null);
 
   const load = useCallback(async () => {
     setStatus('loading');
-    const [machinesRes, tasksRes, orangeRes] = await Promise.all([getMachines(), getTasks(), getOrangeInventory()]);
-    if (machinesRes.error || tasksRes.error || orangeRes.error) {
+    const [machinesRes, tasksRes] = await Promise.all([getMachines(), getTasks()]);
+    if (machinesRes.error || tasksRes.error) {
       setStatus('error');
       return;
     }
     setMachines(machinesRes.machines);
     setTasks(tasksRes.tasks);
-    setOrangeStock(orangeRes.data?.currentStock ?? 0);
     setStatus('ready');
   }, []);
 
@@ -50,8 +63,21 @@ export default function Dashboard() {
   // getTasks() returns every task in the system, not just their own.
   const myTasks = tasks.filter(t => t.assignedToId === profile?.id);
 
-  const cleanCount = machines.filter(m => getMachineStatus(m).status === 'clean').length;
-  const needsCleaningCount = machines.length - cleanCount;
+  // Reuses getMachineStatus() — the single source of truth for the
+  // cleaning-status thresholds — for both these counts and the accordion's
+  // machine list below, so nothing here duplicates that logic.
+  const machinesByStatus: Record<CleaningStatus, Machine[]> = {
+    clean: machines.filter(m => getMachineStatus(m).status === 'clean'),
+    due_soon: machines.filter(m => getMachineStatus(m).status === 'due_soon'),
+    overdue: machines.filter(m => getMachineStatus(m).status === 'overdue'),
+  };
+
+  function toggleStatusFilter(clickedStatus: CleaningStatus) {
+    setActiveStatus(prev => (prev === clickedStatus ? null : clickedStatus));
+    setDisplayedStatus(clickedStatus);
+  }
+
+  const isAccordionOpen = activeStatus !== null && activeStatus === displayedStatus;
 
   return (
     <DashboardLayout title="ראשי" currentUser={FALLBACK_USER}>
@@ -82,31 +108,73 @@ export default function Dashboard() {
             </div>
 
             {machines.length > 0 && (
-              <div className="stat-cards">
+              <div className="status-cards-grid" style={{ marginBottom: 28 }}>
                 <StatCard
                   size="lg"
                   label="מכונות נקיות"
-                  value={cleanCount}
-                  accent="green"
+                  value={machinesByStatus.clean.length}
                   iconSrc="/icons/clean-up.png"
                   iconAlt=""
+                  onClick={() => toggleStatusFilter('clean')}
+                  expanded={activeStatus === 'clean'}
+                  gridArea="clean"
                 />
                 <StatCard
                   size="lg"
                   label="מכונות שדורשות ניקוי"
-                  value={needsCleaningCount}
-                  accent={needsCleaningCount > 0 ? 'red' : 'default'}
+                  value={machinesByStatus.due_soon.length}
                   iconSrc="/icons/broom.png"
                   iconAlt=""
+                  onClick={() => toggleStatusFilter('due_soon')}
+                  expanded={activeStatus === 'due_soon'}
+                  gridArea="due_soon"
                 />
                 <StatCard
                   size="lg"
-                  label="מלאי תפוזים"
-                  value={orangeStock}
-                  iconSrc="/icons/orange.png"
+                  label="מכונות לנקות דחוף"
+                  value={machinesByStatus.overdue.length}
+                  iconSrc="/icons/urgent-cleaning.jpg"
                   iconAlt=""
-                  className="stat-card--desktop-only"
+                  onClick={() => toggleStatusFilter('overdue')}
+                  expanded={activeStatus === 'overdue'}
+                  gridArea="overdue"
                 />
+
+                {/* Shared accordion — one element, positioned via gridArea
+                    onto the same column as whichever card it belongs to
+                    (see .status-cards-grid's grid-template-areas), so it
+                    always renders directly under that one card only, never
+                    as a full-width row. Mounted once the first card is
+                    ever clicked and never unmounted again, so every later
+                    open/close (including collapsing back down) animates
+                    smoothly via the same .collapsible__body mechanism used
+                    everywhere else in the app. */}
+                {displayedStatus && (
+                  <div
+                    className={`machine-section status-accordion${isAccordionOpen ? ' status-accordion--open' : ''}`}
+                    style={{ gridArea: `acc-${displayedStatus}` }}
+                  >
+                    <div className={`collapsible__body${isAccordionOpen ? ' collapsible__body--open' : ''}`}>
+                      <div className="collapsible__body-inner">
+                        <div className="machine-section__header">
+                          <span className="machine-section__title">{STATUS_ACCORDION_TITLE[displayedStatus]}</span>
+                          <span className="machine-section__count">{machinesByStatus[displayedStatus].length}</span>
+                        </div>
+                        {machinesByStatus[displayedStatus].length === 0 ? (
+                          <p className="employee-empty">אין מכונות בקטגוריה זו.</p>
+                        ) : (
+                          <ul className="status-machine-list">
+                            {machinesByStatus[displayedStatus].map(m => (
+                              <li key={m.id} className="status-machine-list__row machine-name">
+                                {m.name}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
