@@ -8,6 +8,7 @@ import {
   getEmployees,
   getMachines,
   PREVIEW_BLOCKED_MESSAGE,
+  isTaskVisible,
   type TaskRecord,
   type EmployeeRecord,
   type TaskType,
@@ -102,7 +103,9 @@ export default function Tasks() {
     }
   }
 
-  const visibleTasks = filterEmployee ? tasks.filter(t => t.assignedToId === filterEmployee) : tasks;
+  const visibleTasks = tasks
+    .filter(isTaskVisible)
+    .filter(t => !filterEmployee || t.assignedToId === filterEmployee);
 
   return (
     <DashboardLayout title="משימות" currentUser={FALLBACK_USER}>

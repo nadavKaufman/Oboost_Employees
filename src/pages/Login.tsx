@@ -35,7 +35,7 @@ export default function Login() {
       .eq('id', data.user.id)
       .single();
     setSubmitting(false);
-    navigate(profileRow?.role === 'manager' || profileRow?.role === 'preview' ? '/dashboard' : '/my-machines');
+    navigate(profileRow?.role === 'manager' || profileRow?.role === 'preview' ? '/dashboard' : '/my-tasks');
   }
 
   async function handleForgotPassword() {

@@ -4,6 +4,7 @@ import { getEmployees, createEmployee, updateEmployee, uploadEmployeePhoto, PREV
 import { useAuth } from '../context/AuthContext';
 import MobileItemCarousel, { type CarouselItem } from '../components/dashboard/MobileItemCarousel';
 import { scrollIntoComfortableView } from '../lib/scrollIntoComfortableView';
+import { useSwipeNavigation } from '../lib/useSwipeNavigation';
 import '../styles/dashboard.css';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -49,6 +50,20 @@ export default function Employees() {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+
+  // Reuses the exact same selection state the bottom carousel already
+  // drives (setSelectedEmployeeId) — swiping the card and tapping the
+  // carousel both just move this one shared "which employee is selected"
+  // value, so they can never fall out of sync. Falls back to index 0 the
+  // same way the mobile card's own render below does, for when nothing is
+  // selected yet.
+  const selectedEmployeeIndex = employees.findIndex(e => e.employee_id === selectedEmployeeId);
+  const employeeSwipeHandlers = useSwipeNavigation(direction => {
+    const baseIndex = selectedEmployeeIndex === -1 ? 0 : selectedEmployeeIndex;
+    const nextIndex = baseIndex + (direction === 'next' ? 1 : -1);
+    if (nextIndex < 0 || nextIndex >= employees.length) return;
+    setSelectedEmployeeId(employees[nextIndex].employee_id);
+  });
 
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_EDIT_FORM);
@@ -362,7 +377,7 @@ export default function Employees() {
 
           return (
             <div className="employees-mobile-view">
-              <div className="mobile-item-card">
+              <div className="mobile-item-card" {...employeeSwipeHandlers}>
                 <div className="employee-mobile-card">
                   <div className="employee-mobile-card__photo">
                     {selected.photoUrl ? (

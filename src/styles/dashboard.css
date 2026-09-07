@@ -1724,6 +1724,29 @@
   display: none;
 }
 
+/* "המשימות להיום" on the manager dashboard, desktop only: a compact card
+   sitting under the three stat cards instead of a full-width section like
+   every other .machine-section — "המשימות שלי" above is the primary task
+   area now. Width/placement only: header, table and mobile list markup
+   are completely untouched, so overflow-x lets the (unmodified) desktop
+   table scroll inside this narrower card instead of being clipped by
+   .machine-section's own `overflow: hidden` on the rare day it has enough
+   tasks to need more room than the card gives it. Mobile is unaffected —
+   this only applies at the same width the 3-stat-card row itself becomes
+   a single fixed-width row. */
+@media (min-width: 768px) {
+  .today-tasks-compact {
+    max-width: 540px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .today-tasks-compact .today-tasks-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
 /* ─── Dashboard overview: simplified "today" summary ───
    "המשימות להיום" is the today-tasks card's own section title (not a page
    title), so it reads as clearly belonging to that card and clearly
@@ -2233,6 +2256,17 @@
    .mobile-item-card itself (scoped to the machine mobile view only —
    Employees' card already has its own chrome via .employee-mobile-card)
    makes name + details + actions render as one real bordered card. */
+/* Shared by both mobile card views (Machines and Employees) that carry the
+   useSwipeNavigation touch handlers. Without this, a horizontal drag here
+   is also seen by the browser itself as its native swipe-back/forward
+   gesture — which is what actually navigated between app pages, not any
+   app code. `pan-y` tells the browser to keep handling vertical scroll
+   natively (untouched) but leave horizontal gestures entirely to our JS
+   swipe handler instead of also acting on them itself. */
+.mobile-item-card {
+  touch-action: pan-y;
+}
+
 .machine-mobile-view .mobile-item-card {
   background: var(--surface);
   border: 1px solid var(--border);

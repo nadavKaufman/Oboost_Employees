@@ -56,8 +56,8 @@ export function getMachineStatus(machine: Machine): MachineStatus {
   const daysSinceCleaned = Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
 
   let status: CleaningStatus;
-  if (daysSinceCleaned >= 14) status = 'overdue';
-  else if (daysSinceCleaned >= 7) status = 'due_soon';
+  if (daysSinceCleaned > 20) status = 'overdue';
+  else if (daysSinceCleaned >= 10) status = 'due_soon';
   else status = 'clean';
 
   return { status, daysSinceCleaned };

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, type FormEvent, type ChangeEvent } from 'r
 import { Link } from 'react-router-dom';
 import { type Machine, getMachineStatus, getCleaningElapsedText, type UserRole } from '../../types/machine';
 import { updateMachine, uploadMachineImage } from '../../lib/supabase';
+import { useSwipeNavigation } from '../../lib/useSwipeNavigation';
 import MachineIcon from './MachineIcon';
 import MobileItemCarousel, { type CarouselItem } from './MobileItemCarousel';
 import { STATUS_LABEL, FAULT_LABEL, FAULT_STATUS_CLASS } from './MachineTable';
@@ -61,6 +62,17 @@ export default function MachineMobileView({
     }
   }, [editing]);
 
+  // Reuses the exact same selection state the bottom carousel already
+  // drives (setSelectedId) — swiping the card and tapping the carousel
+  // both just move this one shared "which machine is selected" value, so
+  // they can never fall out of sync.
+  const currentIndex = machines.findIndex(m => m.id === machine?.id);
+  const swipeHandlers = useSwipeNavigation(direction => {
+    const nextIndex = currentIndex + (direction === 'next' ? 1 : -1);
+    if (nextIndex < 0 || nextIndex >= machines.length) return;
+    setSelectedId(machines[nextIndex].id);
+  });
+
   if (!machine) return null;
 
   const { status: cleanStatus, daysSinceCleaned } = getMachineStatus(machine);
@@ -106,7 +118,7 @@ export default function MachineMobileView({
 
   return (
     <div className="machine-mobile-view">
-      <div className="mobile-item-card">
+      <div className="mobile-item-card" {...swipeHandlers}>
         <div className="mobile-item-card__name">
           {machine.name}
         </div>
@@ -122,13 +134,6 @@ export default function MachineMobileView({
             <div className="machine-detail-row">
               <span className="machine-detail-label">מיקום</span>
               <span>{machine.location || '—'}</span>
-            </div>
-            <div className="machine-detail-row">
-              <span className="machine-detail-label">סטטוס מכונה</span>
-              <span className={`status-badge status-badge--${machine.isActive ? 'clean' : 'overdue'}`}>
-                <span className="status-badge__dot" />
-                {machine.isActive ? 'פעיל' : 'לא פעיל'}
-              </span>
             </div>
             <div className="machine-detail-row">
               <span className="machine-detail-label">ניקיון</span>

@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import StatCard from '../components/dashboard/StatCard';
 import CleaningTaskBadge from '../components/dashboard/CleaningTaskBadge';
+import MyTasksList from '../components/dashboard/MyTasksList';
 import { type Machine, getMachineStatus } from '../types/machine';
 import { useAuth } from '../context/AuthContext';
-import { getMachines, getTasks, getOrangeInventory, type TaskRecord } from '../lib/supabase';
+import { getMachines, getTasks, getOrangeInventory, isTaskVisible, type TaskRecord } from '../lib/supabase';
 import '../styles/layout.css';
 import '../styles/dashboard.css';
 
@@ -16,7 +17,7 @@ const FALLBACK_USER = {
 type PageStatus = 'loading' | 'error' | 'ready';
 
 export default function Dashboard() {
-  const { session, loading } = useAuth();
+  const { session, profile, loading } = useAuth();
   const [status, setStatus] = useState<PageStatus>('loading');
   const [machines, setMachines] = useState<Machine[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
@@ -24,24 +25,30 @@ export default function Dashboard() {
   // the Inventory page, just read here too for the extra card.
   const [orangeStock, setOrangeStock] = useState(0);
 
+  const load = useCallback(async () => {
+    setStatus('loading');
+    const [machinesRes, tasksRes, orangeRes] = await Promise.all([getMachines(), getTasks(), getOrangeInventory()]);
+    if (machinesRes.error || tasksRes.error || orangeRes.error) {
+      setStatus('error');
+      return;
+    }
+    setMachines(machinesRes.machines);
+    setTasks(tasksRes.tasks);
+    setOrangeStock(orangeRes.data?.currentStock ?? 0);
+    setStatus('ready');
+  }, []);
+
   useEffect(() => {
     if (loading) return;
-    setStatus('loading');
-
-    Promise.all([getMachines(), getTasks(), getOrangeInventory()]).then(([machinesRes, tasksRes, orangeRes]) => {
-      if (machinesRes.error || tasksRes.error || orangeRes.error) {
-        setStatus('error');
-        return;
-      }
-      setMachines(machinesRes.machines);
-      setTasks(tasksRes.tasks);
-      setOrangeStock(orangeRes.data?.currentStock ?? 0);
-      setStatus('ready');
-    });
-  }, [loading, session]);
+    load();
+  }, [loading, session, load]);
 
   const today = new Date().toISOString().slice(0, 10);
-  const todayTasks = tasks.filter(t => t.dueDate === today);
+  const todayTasks = tasks.filter(isTaskVisible).filter(t => t.dueDate === today);
+  // "המשימות שלי" — tasks assigned to whoever is logged in, filtered here
+  // (not left to RLS) so this stays correct for a manager too: a manager's
+  // getTasks() returns every task in the system, not just their own.
+  const myTasks = tasks.filter(t => t.assignedToId === profile?.id);
 
   const cleanCount = machines.filter(m => getMachineStatus(m).status === 'clean').length;
   const needsCleaningCount = machines.length - cleanCount;
@@ -70,7 +77,40 @@ export default function Dashboard() {
 
         {status === 'ready' && (
           <>
-            <div className="machine-section today-tasks-section" style={{ marginBottom: 28 }}>
+            <div style={{ marginBottom: 28 }}>
+              <MyTasksList tasks={myTasks} onChanged={load} className="today-tasks-section" />
+            </div>
+
+            {machines.length > 0 && (
+              <div className="stat-cards">
+                <StatCard
+                  size="lg"
+                  label="מכונות נקיות"
+                  value={cleanCount}
+                  accent="green"
+                  iconSrc="/icons/clean-up.png"
+                  iconAlt=""
+                />
+                <StatCard
+                  size="lg"
+                  label="מכונות שדורשות ניקוי"
+                  value={needsCleaningCount}
+                  accent={needsCleaningCount > 0 ? 'red' : 'default'}
+                  iconSrc="/icons/broom.png"
+                  iconAlt=""
+                />
+                <StatCard
+                  size="lg"
+                  label="מלאי תפוזים"
+                  value={orangeStock}
+                  iconSrc="/icons/orange.png"
+                  iconAlt=""
+                  className="stat-card--desktop-only"
+                />
+              </div>
+            )}
+
+            <div className="machine-section today-tasks-compact">
               <div className="machine-section__header">
                 <span className="machine-section__title">המשימות להיום</span>
               </div>
@@ -137,35 +177,6 @@ export default function Dashboard() {
                 </>
               )}
             </div>
-
-            {machines.length > 0 && (
-              <div className="stat-cards">
-                <StatCard
-                  size="lg"
-                  label="מכונות נקיות"
-                  value={cleanCount}
-                  accent="green"
-                  iconSrc="/icons/clean-up.png"
-                  iconAlt=""
-                />
-                <StatCard
-                  size="lg"
-                  label="מכונות שדורשות ניקוי"
-                  value={needsCleaningCount}
-                  accent={needsCleaningCount > 0 ? 'red' : 'default'}
-                  iconSrc="/icons/broom.png"
-                  iconAlt=""
-                />
-                <StatCard
-                  size="lg"
-                  label="מלאי תפוזים"
-                  value={orangeStock}
-                  iconSrc="/icons/orange.png"
-                  iconAlt=""
-                  className="stat-card--desktop-only"
-                />
-              </div>
-            )}
           </>
         )}
       </div>

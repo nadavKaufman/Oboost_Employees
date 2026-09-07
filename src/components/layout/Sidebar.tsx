@@ -75,10 +75,9 @@ const MANAGER_NAV_ITEMS: NavItem[] = [
 ];
 
 const EMPLOYEE_NAV_ITEMS: NavItem[] = [
+  { icon: <NavGlyph>✓</NavGlyph>, label: 'המשימות שלי', path: '/my-tasks' },
   { icon: MACHINE_ICON, label: 'מכונות', path: '/my-machines' },
   { icon: INVENTORY_ICON, label: 'מלאי', path: '/inventory' },
-  { icon: <NavGlyph>✓</NavGlyph>, label: 'המשימות שלי', path: '/my-tasks' },
-  { icon: <NavGlyph>📋</NavGlyph>, label: 'הפעילות שלי', path: '/my-activity' },
 ];
 
 // Path-prefix match so sub-routes (e.g. /machines/:id, /machines/:id/report-malfunction)

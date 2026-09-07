@@ -1485,6 +1485,18 @@ export async function completeTask(
   return { error: null };
 }
 
+// Completed tasks stay visible for 3 days after completion, then drop out
+// of every task list in the UI — never deleted from the database (status
+// and completed_at are untouched), only filtered from these views. Pending
+// tasks are always visible.
+const COMPLETED_TASK_VISIBLE_DAYS = 3;
+
+export function isTaskVisible(task: TaskRecord): boolean {
+  if (task.status !== 'completed' || !task.completedAt) return true;
+  const daysSinceCompleted = (Date.now() - new Date(task.completedAt).getTime()) / (1000 * 60 * 60 * 24);
+  return daysSinceCompleted <= COMPLETED_TASK_VISIBLE_DAYS;
+}
+
 export async function uploadTaskCompletionPhoto(file: File): Promise<{ url: string | null; error: string | null }> {
   const validationError = validateImageFile(file);
   if (validationError) return { url: null, error: validationError };

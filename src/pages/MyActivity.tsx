@@ -6,6 +6,7 @@ import {
   getOrangeInventory,
   getSparePartTransactions,
   getTasks,
+  isTaskVisible,
   REPORT_STATUS_LABEL,
   type CleaningHistoryRecord,
   type MalfunctionHistoryRecord,
@@ -62,6 +63,8 @@ export default function MyActivity() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const visibleTasks = tasks.filter(isTaskVisible);
 
   return (
     <DashboardLayout title="הפעילות שלי" currentUser={FALLBACK_USER}>
@@ -209,9 +212,9 @@ export default function MyActivity() {
             <div className="machine-section">
               <div className="machine-section__header">
                 <span className="machine-section__title">המשימות שלי</span>
-                <span className="machine-section__count">{tasks.length} משימות</span>
+                <span className="machine-section__count">{visibleTasks.length} משימות</span>
               </div>
-              {tasks.length === 0 ? (
+              {visibleTasks.length === 0 ? (
                 <p className="employee-empty">עדיין לא הוקצו לכם משימות.</p>
               ) : (
                 <table className="machine-table">
@@ -224,7 +227,7 @@ export default function MyActivity() {
                     </tr>
                   </thead>
                   <tbody>
-                    {tasks.map(t => (
+                    {visibleTasks.map(t => (
                       <tr key={t.id}>
                         <td>{t.title}</td>
                         <td>{t.machineName ?? '—'}</td>

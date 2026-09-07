@@ -212,10 +212,41 @@
 @media (max-width: 1023px) {
   .sidebar {
     transform: translateX(var(--sidebar-w));
+    /* The real cause of the footer/logout button being unreachable: `bottom:
+       0` on a `position: fixed` element sizes against the browser's large
+       (toolbar-hidden) viewport, not the actually-visible one. When the
+       mobile browser's own address/tab bar is on screen, that makes the
+       sidebar taller than the visible area and pushes its bottom — the
+       footer — behind that browser chrome, with nothing to scroll to reach
+       it (a fixed element isn't part of page scroll at all). `height: 100svh`
+       (small viewport height — sized to the *smallest* the visible area
+       ever is, toolbar included) replaces `bottom: 0` here so the whole
+       sidebar always fits inside the guaranteed-visible viewport instead.
+       Same unit `.dash-layout` already uses for this exact reason. Desktop
+       keeps its original `bottom: 0` (see the base .sidebar rule above),
+       completely untouched. */
+    height: 100svh;
   }
 
   .sidebar.open {
     transform: translateX(0);
+  }
+
+  /* Belt-and-suspenders alongside the height fix above: if nav content
+     ever gets long enough to not fit even the guaranteed-visible height,
+     let it scroll internally rather than pushing the footer out of the
+     fixed box entirely. */
+  .sidebar__nav {
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  /* Clears the iOS/Android gesture bar at the very bottom of the screen —
+     same env(safe-area-inset-bottom) pattern already used by
+     .mobile-carousel for the same reason, so the sign-out button's tap
+     target is never sitting flush against (or under) that system UI. */
+  .sidebar__footer {
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
   }
 }
 
